@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Correttore Cassa Mobile</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      padding: 20px;
+      background: #f4f4f4;
+      font-size: 18px;
+    }
+    table {
+      border-collapse: collapse;
+      width: 100%;
+      margin-bottom: 20px;
+      font-size: 18px;
+    }
+    th, td {
+      border: 1px solid #ccc;
+      padding: 12px;
+      text-align: center;
+    }
+    input[type="number"] {
+      width: 80px;
+      font-size: 18px;
+      padding: 6px;
+    }
+    .result {
+      font-weight: bold;
+      margin-top: 20px;
+      font-size: 18px;
+    }
+    button {
+      padding: 14px 24px;
+      font-size: 18px;
+      width: 100%;
+      margin-top: 10px;
+    }
+    h2 {
+      font-size: 24px;
+    }
+    p {
+      font-size: 18px;
+    }
+  </style>
+</head>
+<body>
+
+<h2>Correttore Cassa</h2>
+
+<p>Inserisci il numero di pezzi per ogni taglio:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Taglio</th>
+      <th>Quantità</th>
+    </tr>
+  </thead>
+  <tbody id="cash-table"></tbody>
+</table>
+
+<p id="totaleInserito">Totale inserito: 0.00 €</p>
+
+<p>
+  Totale stimato dal sistema: <input type="number" id="totaleStimato" step="0.01"> €
+</p>
+
+<button onclick="calcolaCorrezione()">Calcola Correzione</button>
+
+<div class="result" id="risultato"></div>
+
+<h3>Tabella corretta suggerita:</h3>
+<table>
+  <thead>
+    <tr>
+      <th>Taglio</th>
+      <th>Quantità corretta</th>
+    </tr>
+  </thead>
+  <tbody id="corretta-table"></tbody>
+</table>
+
+<script>
+  const tagli = [
+    { valore: 500, label: '500 €' },
+    { valore: 200, label: '200 €' },
+    { valore: 100, label: '100 €' },
+    { valore: 50, label: '50 €' },
+    { valore: 20, label: '20 €' },
+    { valore: 10, label: '10 €' },
+    { valore: 5, label: '5 €' },
+    { valore: 2, label: '2 €' },
+    { valore: 1, label: '1 €' },
+    { valore: 0.5, label: '50 cent' },
+    { valore: 0.2, label: '20 cent' },
+    { valore: 0.1, label: '10 cent' },
+    { valore: 0.05, label: '5 cent' },
+    { valore: 0.02, label: '2 cent' },
+    { valore: 0.01, label: '1 cent' }
+  ];
+
+  const tbody = document.getElementById('cash-table');
+  const correttaBody = document.getElementById('corretta-table');
+  const totaleInseritoEl = document.getElementById('totaleInserito');
+
+  tagli.forEach((t, i) => {
+    const row = document.createElement('tr');
+    row.innerHTML = `
+      <td>${t.label}</td>
+      <td><input type="number" id="qta-${i}" min="0" value="0" oninput="aggiornaTotale()"> </td>
+    `;
+    tbody.appendChild(row);
+
+    const corrRow = document.createElement('tr');
+    corrRow.innerHTML = `
+      <td>${t.label}</td>
+      <td id="corr-qta-${i}">0</td>
+    `;
+    correttaBody.appendChild(corrRow);
+  });
+
+  function aggiornaTotale() {
+    let totale = 0;
+    tagli.forEach((t, i) => {
+      const qta = parseInt(document.getElementById(`qta-${i}`).value) || 0;
+      totale += qta * t.valore;
+    });
+    totaleInseritoEl.innerText = `Totale inserito: ${totale.toFixed(2)} €`;
+  }
+
+  function calcolaCorrezione() {
+    let totale = 0;
+    let originale = [];
+    tagli.forEach((t, i) => {
+      const qta = parseInt(document.getElementById(`qta-${i}`).value) || 0;
+      originale[i] = qta;
+      totale += qta * t.valore;
+    });
+
+    const stimato = parseFloat(document.getElementById('totaleStimato').value) || 0;
+    const differenza = parseFloat((totale - stimato).toFixed(2));
+    let messaggio = `Differenza rispetto al sistema: ${differenza.toFixed(2)} €<br>`;
+
+    let corretta = [...originale];
+    let resto = Math.abs(differenza);
+    let operazione = differenza > 0 ? 'aggiungi' : 'rimuovi';
+
+    for (let i = 0; i < tagli.length; i++) {
+      const pezzi = Math.floor(resto / tagli[i].valore);
+      if (pezzi > 0) {
+        corretta[i] += (operazione === 'aggiungi' ? pezzi : -pezzi);
+        resto = parseFloat((resto - pezzi * tagli[i].valore).toFixed(2));
+      }
+      if (resto < 0.01) break;
+    }
+
+    corretta.forEach((qta, i) => {
+      const cella = document.getElementById(`corr-qta-${i}`);
+      if (qta !== originale[i]) {
+        cella.innerHTML = `<strong style="color: red;">${qta} <span style="color: gray;">(${originale[i]})</span></strong>`;
+      } else {
+        cella.innerText = qta;
+      }
+    });
+
+    messaggio += operazione === 'aggiungi'
+      ? "ℹ️ Hai un surplus. Aggiungi pezzi per compensare."
+      : "⚠️ C'è un ammanco. Rimuovi pezzi per compensare.";
+
+    document.getElementById('risultato').innerHTML = messaggio;
+  }
+</script>
+
+</body>
+</html>
