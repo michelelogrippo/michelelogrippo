@@ -2,8 +2,8 @@
 <html lang="it">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Correttore Cassa Mobile</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Correttore Cassa</title>
   <style>
     body {
       font-family: sans-serif;
@@ -84,6 +84,7 @@
 </table>
 
 <script>
+  let budgetExtra = 30.00;
   const tagli = [
     { valore: 500, label: '500 €' },
     { valore: 200, label: '200 €' },
@@ -131,47 +132,51 @@
     totaleInseritoEl.innerText = `Totale inserito: ${totale.toFixed(2)} €`;
   }
 
-  function calcolaCorrezione() {
-    let totale = 0;
-    let originale = [];
-    tagli.forEach((t, i) => {
-      const qta = parseInt(document.getElementById(`qta-${i}`).value) || 0;
-      originale[i] = qta;
-      totale += qta * t.valore;
-    });
 
-    const stimato = parseFloat(document.getElementById('totaleStimato').value) || 0;
-    const differenza = parseFloat((totale - stimato).toFixed(2));
-    let messaggio = `Differenza rispetto al sistema: ${differenza.toFixed(2)} €<br>`;
+function calcolaCorrezione() {
+  const stimato = parseFloat(document.getElementById('totaleStimato').value) || 0;
+  let resto = stimato;
+  let suggerita = Array(tagli.length).fill(0);
+  let disponibile = tagli.map((_, i) => parseInt(document.getElementById(`qta-${i}`).value) || 0);
+  let valoreAggiunto = 0;
 
-    let corretta = [...originale];
-    let resto = Math.abs(differenza);
-    let operazione = differenza > 0 ? 'aggiungi' : 'rimuovi';
+for (let i = 0; i < tagli.length; i++) {
+  const maxPezzi = Math.floor(resto / tagli[i].valore);
+  let pezziUsabili = Math.min(maxPezzi, disponibile[i]);
 
-    for (let i = 0; i < tagli.length; i++) {
-      const pezzi = Math.floor(resto / tagli[i].valore);
-      if (pezzi > 0) {
-        corretta[i] += (operazione === 'aggiungi' ? pezzi : -pezzi);
-        resto = parseFloat((resto - pezzi * tagli[i].valore).toFixed(2));
-      }
-      if (resto < 0.01) break;
-    }
-
-    corretta.forEach((qta, i) => {
-      const cella = document.getElementById(`corr-qta-${i}`);
-      if (qta !== originale[i]) {
-        cella.innerHTML = `<strong style="color: red;">${qta} <span style="color: gray;">(${originale[i]})</span></strong>`;
-      } else {
-        cella.innerText = qta;
-      }
-    });
-
-    messaggio += operazione === 'aggiungi'
-      ? "ℹ️ Hai un surplus. Aggiungi pezzi per compensare."
-      : "⚠️ C'è un ammanco. Rimuovi pezzi per compensare.";
-
-    document.getElementById('risultato').innerHTML = messaggio;
+  // Se non bastano e il valore è 0, possiamo aggiungere pezzi
+  if (pezziUsabili < maxPezzi && disponibile[i] === 0 && budgetExtra >= tagli[i].valore && tagli[i].valore < 10) {
+    const pezziExtra = Math.min(maxPezzi - pezziUsabili, Math.floor(budgetExtra / tagli[i].valore));
+    pezziUsabili += pezziExtra;
+    budgetExtra -= pezziExtra * tagli[i].valore;
   }
+
+  suggerita[i] = pezziUsabili;
+  resto = parseFloat((resto - pezziUsabili * tagli[i].valore).toFixed(2));
+  if (resto < 0.01) break;
+}
+
+  let messaggio = '';
+  if (resto === 0) {
+    messaggio = `✅ Combinazione trovata per raggiungere ${stimato.toFixed(2)} €`;
+  } else {
+    messaggio = `❌ Impossibile raggiungere ${stimato.toFixed(2)} € con i pezzi disponibili (mancano ${resto.toFixed(2)} €)`;
+  }
+
+  suggerita.forEach((qta, i) => {
+    const originale = disponibile[i];
+    const cella = document.getElementById(`corr-qta-${i}`);
+    if (qta !== originale) {
+      cella.innerHTML = `<strong style="color: red;">${qta} <span style="color: gray;">(${originale})</span></strong>`;
+    } else {
+      cella.innerText = qta;
+    }
+  });
+
+  document.getElementById('risultato').innerHTML = messaggio;
+}
+
+
 </script>
 
 </body>
